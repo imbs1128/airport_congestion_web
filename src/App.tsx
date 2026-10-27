@@ -9,6 +9,34 @@ const OPERATION = 'getPassgrAnncmt'
 
 type Row = Record<string, string | number>
 
+// 표 머리글: API 열 이름 → 읽기 쉬운 이름 (eg = 입국장, dg = 출국장)
+// T1 입국장 순서는 공공데이터포털 설명(동편→서편→입국심사 C→D) 기준
+const LABELS: Record<string, string> = {
+  adate: '날짜',
+  atime: '시간대',
+  t1eg1: 'T1 입국장 동편(A,B)',
+  t1eg2: 'T1 입국장 서편(E,F)',
+  t1eg3: 'T1 입국심사(C)',
+  t1eg4: 'T1 입국심사(D)',
+  t1egsum1: 'T1 입국 합계',
+  t1dg1: 'T1 출국장 1',
+  t1dg2: 'T1 출국장 2',
+  t1dg3: 'T1 출국장 3',
+  t1dg4: 'T1 출국장 4',
+  t1dg5: 'T1 출국장 5',
+  t1dg6: 'T1 출국장 6',
+  t1dgsum1: 'T1 출국 합계',
+  t2eg1: 'T2 입국장 1',
+  t2eg2: 'T2 입국장 2',
+  t2egsum1: 'T2 입국 합계',
+  t2dg1: 'T2 출국장 1',
+  t2dg2: 'T2 출국장 2',
+  t2dgsum2: 'T2 출국 합계',
+}
+
+// 값이 비어 있는 예비 열(tmp1, tmp2)은 표에서 숨김
+const HIDDEN = ['tmp1', 'tmp2']
+
 // 응답이 items 배열 또는 items.item(단건이면 객체)으로 올 수 있어 둘 다 처리
 function extractItems(json: any): Row[] {
   const items = json?.response?.body?.items
@@ -57,7 +85,8 @@ function App() {
       .finally(() => setLoading(false))
   }, [])
 
-  const columns = rows.length > 0 ? Object.keys(rows[0]) : []
+  const columns =
+    rows.length > 0 ? Object.keys(rows[0]).filter((c) => !HIDDEN.includes(c)) : []
 
   return (
     <main className="page">
@@ -85,7 +114,9 @@ function App() {
             <thead>
               <tr>
                 {columns.map((c) => (
-                  <th key={c}>{c}</th>
+                  <th key={c} title={c}>
+                    {LABELS[c] ?? c}
+                  </th>
                 ))}
               </tr>
             </thead>
