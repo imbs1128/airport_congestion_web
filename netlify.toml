@@ -1,0 +1,14 @@
+# Netlify 배포 설정
+[build]
+  command = "npm run build"   # 빌드 명령
+  publish = "dist"            # 빌드 결과물 폴더
+
+[build.environment]
+  NODE_VERSION = "22"         # Vite 8은 Node 20.19+ / 22.12+ 필요
+
+# 배포된 사이트에서도 CORS 없이 API를 부르도록 Netlify가 대신 전달 (개발 때의 Vite 프록시 역할)
+[[redirects]]
+  from = "/api/*"
+  to = "https://apis.data.go.kr/B551177/passgrAnncmt/:splat"
+  status = 200
+  force = true
