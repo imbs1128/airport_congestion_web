@@ -158,3 +158,64 @@ thead th {
   margin-bottom: 12px;
   color: var(--text-h);
 }
+
+/* ---------- 출발 시간 입력 ---------- */
+.departure {
+  margin-bottom: 20px;
+}
+
+.departure label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: var(--text-h);
+}
+
+.departure-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.departure input,
+.departure button {
+  font: inherit;
+  font-size: 15px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.departure button {
+  cursor: pointer;
+}
+
+.departure button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.departure button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.form-message {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #e5484d;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  line-height: 20px;
+}

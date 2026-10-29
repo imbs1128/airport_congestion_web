@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import {
   BarElement,
   CategoryScale,
@@ -20,6 +20,7 @@ const cssVar = (name: string) =>
 
 type Row = Record<string, string | number>
 type Terminal = 'T1' | 'T2'
+type View = { date: string; hour: number } // date: "20261029", hour: 0~23
 
 // 터미널별 출국장 열 이름 (dg = 출국장)
 const GATES: Record<Terminal, { key: string; label: string }[]> = {
@@ -28,29 +29,64 @@ const GATES: Record<Terminal, { key: string; label: string }[]> = {
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
-
-// 지금 시각이 속한 시간대 (예: 21시 → "21_22")
-function currentSlot() {
-  const h = new Date().getHours()
-  return `${pad(h)}_${pad(h + 1)}`
-}
-
-// "08_09" → "08시~09시"
-const slotLabel = (slot: string) => slot.replace('_', '시~') + '시'
-
 const fmt = (n: number) => n.toLocaleString('ko-KR')
 
-function FastestGate({ rows }: { rows: Row[] }) {
-  // 맨 아래 "합계" 행은 제외
-  const hourRows = useMemo(() => rows.filter((r) => r.atime !== '합계'), [rows])
-  const slots = hourRows.map((r) => String(r.atime))
+// ----- 날짜/시간 변환 도우미 -----
+// Date → "20261029" (API의 adate 형식)
+const toYmd = (d: Date) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`
+// "20261029" → "2026-10-29" (입력창 형식)
+const ymdToDash = (ymd: string) => `${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}`
+// View → "2026-10-29T08:00" (datetime-local 입력창 값)
+const toInputValue = (v: View) => `${ymdToDash(v.date)}T${pad(v.hour)}:00`
+// 시간 → API의 atime 형식 ("08_09")
+const toSlot = (hour: number) => `${pad(hour)}_${pad(hour + 1)}`
 
-  const [terminal, setTerminal] = useState<Terminal>('T1')
-  const [slot, setSlot] = useState(() =>
-    slots.includes(currentSlot()) ? currentSlot() : slots[0],
+const nowView = (): View => {
+  const d = new Date()
+  return { date: toYmd(d), hour: d.getHours() }
+}
+
+function FastestGate({ rows }: { rows: Row[] }) {
+  // API가 준 날짜 목록 (오늘, 내일) — "합계" 행은 제외
+  const dates = useMemo(
+    () => [...new Set(rows.map((r) => String(r.adate)))].filter((d) => d !== '합계').sort(),
+    [rows],
   )
 
-  const row = hourRows.find((r) => r.atime === slot)
+  const [terminal, setTerminal] = useState<Terminal>('T1')
+  const [view, setView] = useState<View>(nowView) // 지금 보여주는 시간대
+  const [input, setInput] = useState(() => toInputValue(nowView())) // 입력창 값
+  const [message, setMessage] = useState<string | null>(null)
+
+  const now = nowView()
+  const isNow = view.date === now.date && view.hour === now.hour
+
+  // "이 시간대 혼잡도 보기" 버튼
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault() // 폼 제출 시 페이지가 새로고침되는 기본 동작을 막음
+    if (!input) return setMessage('날짜와 시간을 입력해 주세요.')
+
+    const [datePart, timePart] = input.split('T') // "2026-10-30", "08:30"
+    const date = datePart.replaceAll('-', '')
+    const hour = Number(timePart.slice(0, 2))
+
+    if (!dates.includes(date)) {
+      return setMessage('오늘과 내일 날짜만 조회할 수 있습니다.')
+    }
+    setMessage(null)
+    setView({ date, hour })
+  }
+
+  // "현재 시간으로 돌아가기" 버튼
+  const handleReset = () => {
+    const n = nowView()
+    setView(n)
+    setInput(toInputValue(n))
+    setMessage(null)
+  }
+
+  // 선택한 날짜 + 시간대의 데이터 한 줄
+  const row = rows.find((r) => String(r.adate) === view.date && r.atime === toSlot(view.hour))
   const gates = GATES[terminal].map((g) => ({
     name: g.label,
     count: Number(row?.[g.key] ?? 0),
@@ -63,6 +99,10 @@ function FastestGate({ rows }: { rows: Row[] }) {
     ? open.reduce((min, g) => (g.count < min.count ? g : min))
     : null
 
+  // 화면 표시용: "10월 30일(내일) 08시~09시"
+  const dayName = view.date === dates[0] ? '오늘' : '내일'
+  const viewLabel = `${Number(view.date.slice(4, 6))}월 ${Number(view.date.slice(6, 8))}일(${dayName}) ${pad(view.hour)}시~${pad(view.hour + 1)}시`
+
   // ----- Chart.js 설정 -----
   const color = {
     accent: cssVar('--accent'),
@@ -72,7 +112,6 @@ function FastestGate({ rows }: { rows: Row[] }) {
     border: cssVar('--border'),
   }
 
-  // 데이터: 라벨(가로축)과 값(막대 높이)을 따로 넘김
   const data: ChartData<'bar'> = {
     labels: open.map((g) => g.name),
     datasets: [
@@ -87,7 +126,6 @@ function FastestGate({ rows }: { rows: Row[] }) {
     ],
   }
 
-  // 옵션: 축, 격자, 툴팁 모양
   const options: ChartOptions<'bar'> = {
     responsive: true,
     maintainAspectRatio: false,
@@ -136,6 +174,28 @@ function FastestGate({ rows }: { rows: Row[] }) {
 
   return (
     <section className="fastest">
+      {/* 출발 시간 입력 */}
+      <form className="departure" onSubmit={handleSubmit}>
+        <label htmlFor="departure-time">출발 날짜와 시간</label>
+        <div className="departure-row">
+          <input
+            id="departure-time"
+            type="datetime-local"
+            value={input}
+            min={dates[0] ? `${ymdToDash(dates[0])}T00:00` : undefined}
+            max={dates.at(-1) ? `${ymdToDash(dates.at(-1)!)}T23:59` : undefined}
+            onChange={(e) => setInput(e.target.value)}
+          />
+          <button type="submit" className="primary">
+            이 시간대 혼잡도 보기
+          </button>
+          <button type="button" onClick={handleReset} disabled={isNow}>
+            현재 시간으로 돌아가기
+          </button>
+        </div>
+        {message && <p className="form-message">{message}</p>}
+      </form>
+
       <div className="controls">
         <div className="segmented" role="group" aria-label="터미널 선택">
           {(['T1', 'T2'] as Terminal[]).map((t) => (
@@ -149,30 +209,26 @@ function FastestGate({ rows }: { rows: Row[] }) {
             </button>
           ))}
         </div>
-
-        <select value={slot} onChange={(e) => setSlot(e.target.value)}>
-          {slots.map((s) => (
-            <option key={s} value={s}>
-              {slotLabel(s)}
-              {s === currentSlot() ? ' (지금)' : ''}
-            </option>
-          ))}
-        </select>
       </div>
 
       <div className="hero">
-        <span className="hero-label">가장 한산한 출국장</span>
+        <span className="hero-label">
+          가장 한산한 출국장 · <span className="badge">{isNow ? '지금' : '선택한 시간'}</span>
+        </span>
         {best ? (
           <>
             <strong className="hero-value">
               {terminal} {best.name} 출국장
             </strong>
             <span className="hero-sub">
-              {slotLabel(slot)} 예상 {fmt(best.count)}명
+              {viewLabel} 예상 {fmt(best.count)}명
             </span>
           </>
         ) : (
-          <strong className="hero-value">운영 중인 출국장 없음</strong>
+          <>
+            <strong className="hero-value">운영 중인 출국장 없음</strong>
+            <span className="hero-sub">{viewLabel}</span>
+          </>
         )}
       </div>
 

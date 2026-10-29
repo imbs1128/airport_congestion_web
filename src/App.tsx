@@ -54,33 +54,38 @@ function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const params = new URLSearchParams({
-      serviceKey: API_KEY,
-      type: 'json',
-      numOfRows: '100', // 기본값 10건 → 하루치 전체를 받도록 늘림
-      pageNo: '1',
-    })
-
-    fetch(`${BASE_URL}/${OPERATION}?${params}`)
-      .then(async (res) => {
-        const text = await res.text()
-        setRaw(text)
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-        let json: any
-        try {
-          json = JSON.parse(text)
-        } catch {
-          // 인증 오류 등은 type=json이어도 XML로 오는 경우가 있음
-          throw new Error('JSON이 아닌 응답입니다. 아래 원문을 확인하세요.')
-        }
-
-        const header = json?.response?.header
-        if (header && header.resultCode !== '00') {
-          throw new Error(`${header.resultCode} ${header.resultMsg}`)
-        }
-        setRows(extractItems(json))
+    // 하루치 데이터 요청 (selectdate: 0 = 오늘, 1 = 내일 / API가 제공하는 범위는 이 둘뿐)
+    const fetchDay = async (selectdate: 0 | 1): Promise<Row[]> => {
+      const params = new URLSearchParams({
+        serviceKey: API_KEY,
+        type: 'json',
+        numOfRows: '100', // 기본값 10건 → 하루치 전체를 받도록 늘림
+        pageNo: '1',
+        selectdate: String(selectdate),
       })
+      const res = await fetch(`${BASE_URL}/${OPERATION}?${params}`)
+      const text = await res.text()
+      setRaw(text)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+      let json: any
+      try {
+        json = JSON.parse(text)
+      } catch {
+        // 인증 오류 등은 type=json이어도 XML로 오는 경우가 있음
+        throw new Error('JSON이 아닌 응답입니다. 아래 원문을 확인하세요.')
+      }
+
+      const header = json?.response?.header
+      if (header && header.resultCode !== '00') {
+        throw new Error(`${header.resultCode} ${header.resultMsg}`)
+      }
+      return extractItems(json)
+    }
+
+    // 오늘, 내일 데이터를 동시에 요청해서 합침
+    Promise.all([fetchDay(0), fetchDay(1)])
+      .then(([today, tomorrow]) => setRows([...today, ...tomorrow]))
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
