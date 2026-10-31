@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
 import {
   BarElement,
   CategoryScale,
@@ -41,6 +41,19 @@ const toInputValue = (v: View) => `${ymdToDash(v.date)}T${pad(v.hour)}:00`
 // 시간 → API의 atime 형식 ("08_09")
 const toSlot = (hour: number) => `${pad(hour)}_${pad(hour + 1)}`
 
+// 화면 폭이 640px 이하인지 실시간으로 알려 주는 훅 (창 크기를 바꾸면 자동으로 다시 그림)
+const MOBILE_QUERY = '(max-width: 640px)'
+function useIsMobile() {
+  return useSyncExternalStore(
+    (onChange) => {
+      const mq = window.matchMedia(MOBILE_QUERY)
+      mq.addEventListener('change', onChange)
+      return () => mq.removeEventListener('change', onChange)
+    },
+    () => window.matchMedia(MOBILE_QUERY).matches,
+  )
+}
+
 const nowView = (): View => {
   const d = new Date()
   return { date: toYmd(d), hour: d.getHours() }
@@ -53,6 +66,7 @@ function FastestGate({ rows }: { rows: Row[] }) {
     [rows],
   )
 
+  const isMobile = useIsMobile()
   const [terminal, setTerminal] = useState<Terminal>('T1')
   const [view, setView] = useState<View>(nowView) // 지금 보여주는 시간대
   const [input, setInput] = useState(() => toInputValue(nowView())) // 입력창 값
@@ -121,38 +135,52 @@ function FastestGate({ rows }: { rows: Row[] }) {
         // 가장 한산한 출국장만 강조색, 나머지는 회색
         backgroundColor: open.map((g) => (g === best ? color.accent : color.muted)),
         borderRadius: 4,
-        maxBarThickness: 56,
+        maxBarThickness: isMobile ? 36 : 56,
       },
     ],
   }
 
+  // 모바일: 막대를 가로로 눕혀 위→아래로 나열 (indexAxis: 'y') / 데스크톱: 세로 막대
+  const horizontal = isMobile
+  const categoryAxis = {
+    grid: { display: false },
+    border: { color: color.border },
+    ticks: { color: color.text, font: { size: isMobile ? 13 : 14 } },
+  }
+  const valueAxis = {
+    beginAtZero: true,
+    grid: { color: color.border },
+    border: { display: false },
+    ticks: {
+      color: color.text,
+      font: { size: isMobile ? 11 : 12 },
+      callback: (v: string | number) => fmt(Number(v)),
+    },
+  }
+
   const options: ChartOptions<'bar'> = {
+    indexAxis: horizontal ? 'y' : 'x',
     responsive: true,
     maintainAspectRatio: false,
-    layout: { padding: { top: 24 } },
+    // 막대 끝에 숫자가 들어갈 여백 (가로 막대면 오른쪽, 세로 막대면 위쪽)
+    layout: { padding: horizontal ? { right: 48 } : { top: 24 } },
     plugins: {
       legend: { display: false }, // 막대 1종류라 범례 불필요
       tooltip: {
         callbacks: {
           title: (items) => `${terminal} ${items[0].label} 출국장`,
-          label: (item) => `예상 인원: ${fmt(Number(item.parsed.y ?? 0))}명`,
+          label: (item) =>
+            `예상 인원: ${fmt(Number((horizontal ? item.parsed.x : item.parsed.y) ?? 0))}명`,
         },
       },
     },
-    scales: {
-      x: {
-        grid: { display: false },
-        border: { color: color.border },
-        ticks: { color: color.text, font: { size: 14 } },
-      },
-      y: {
-        beginAtZero: true,
-        grid: { color: color.border },
-        border: { display: false },
-        ticks: { color: color.text, callback: (v) => fmt(Number(v)) },
-      },
-    },
+    scales: horizontal
+      ? { y: categoryAxis, x: valueAxis }
+      : { x: categoryAxis, y: valueAxis },
   }
+
+  // 차트 높이: 모바일은 막대 개수에 맞춰 늘어남
+  const chartHeight = horizontal ? open.length * 52 + 40 : 280
 
   // 막대 위에 숫자를 써 주는 작은 플러그인 (Chart.js 기본 기능에는 없음)
   const valueLabels: Plugin<'bar'> = {
@@ -162,11 +190,19 @@ function FastestGate({ rows }: { rows: Row[] }) {
       ctx.save()
       ctx.fillStyle = color.textH
       ctx.font = '13px system-ui, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'bottom'
       chart.getDatasetMeta(0).data.forEach((bar, i) => {
-        const v = Number(chart.data.datasets[0].data[i])
-        ctx.fillText(fmt(v), bar.x, bar.y - 4)
+        const v = fmt(Number(chart.data.datasets[0].data[i]))
+        if (horizontal) {
+          // 가로 막대: 막대 오른쪽 끝 옆에
+          ctx.textAlign = 'left'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(v, bar.x + 6, bar.y)
+        } else {
+          // 세로 막대: 막대 위에
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'bottom'
+          ctx.fillText(v, bar.x, bar.y - 4)
+        }
       })
       ctx.restore()
     },
@@ -233,8 +269,14 @@ function FastestGate({ rows }: { rows: Row[] }) {
       </div>
 
       {open.length > 0 && (
-        <div className="chart" style={{ position: 'relative', height: 280 }}>
-          <Bar data={data} options={options} plugins={[valueLabels]} />
+        <div className="chart" style={{ position: 'relative', height: chartHeight }}>
+          {/* key가 바뀌면 차트를 새로 만듦 → 가로/세로 전환이 깔끔하게 적용됨 */}
+          <Bar
+            key={horizontal ? 'h' : 'v'}
+            data={data}
+            options={options}
+            plugins={[valueLabels]}
+          />
         </div>
       )}
 

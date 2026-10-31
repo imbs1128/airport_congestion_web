@@ -1,41 +1,192 @@
+/* ---------- 페이지 ---------- */
 .page {
   /* #root가 flex라서 min-width: 0이 없으면 넓은 표 때문에 페이지 전체가 옆으로 늘어남 */
   min-width: 0;
   width: 100%;
-  box-sizing: border-box;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 32px 16px;
-  text-align: left;
+  padding: clamp(20px, 4vw, 40px) 16px;
 }
 
 .page h1 {
-  color: var(--text-h);
   margin: 0 0 4px;
-  font-size: 28px;
+  /* 모바일 24px → 데스크톱 36px */
+  font-size: clamp(1.5rem, 1.1rem + 2vw, 2.25rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .sub {
-  margin: 0 0 24px;
+  margin: 0 0 clamp(20px, 4vw, 32px);
+  font-size: 0.95rem;
 }
 
 .error {
-  border: 1px solid #e5484d;
+  border: 1px solid var(--danger);
   border-radius: 8px;
   padding: 12px 16px;
-  color: #e5484d;
+  color: var(--danger);
 }
 
 .error pre {
   margin-top: 12px;
   white-space: pre-wrap;
   word-break: break-all;
-  font-size: 13px;
+  font-size: 0.8rem;
   color: var(--text);
+}
+
+/* ---------- 공통: 입력창, 버튼 (터치하기 편한 최소 48px) ---------- */
+.departure input,
+.departure button,
+.segmented button {
+  min-height: 48px;
+  font: inherit;
+  font-size: 16px; /* 16px 미만이면 아이폰이 입력창을 누를 때 화면을 확대함 */
+  border-radius: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- 출발 시간 입력 ---------- */
+.departure {
+  margin-bottom: 20px;
+}
+
+.departure label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-h);
+}
+
+.departure-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.departure input {
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.departure button {
+  padding: 0 18px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.departure button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.departure button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.form-message {
+  margin: 8px 0 0;
+  font-size: 0.875rem;
+  color: var(--danger);
+}
+
+/* ---------- 터미널 선택 ---------- */
+.controls {
+  margin-bottom: 20px;
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.segmented button {
+  padding: 0 20px;
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--border);
+}
+
+.segmented button.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+/* ---------- 결과 카드 ---------- */
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: clamp(16px, 3vw, 24px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  margin-bottom: 20px;
+}
+
+.hero-label {
+  font-size: 0.875rem;
+}
+
+.hero-value {
+  /* 모바일 26px → 데스크톱 36px */
+  font-size: clamp(1.6rem, 1.2rem + 2vw, 2.25rem);
+  line-height: 1.2;
+  color: var(--text-h);
+}
+
+.hero-sub {
+  font-size: 0.95rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.75rem;
+  line-height: 20px;
+}
+
+.note {
+  font-size: 0.875rem;
+  margin-top: 8px;
+}
+
+/* ---------- 전체 데이터 표 ---------- */
+.fastest {
+  margin-bottom: 32px;
+}
+
+.raw-table summary {
+  padding: 12px 0; /* 터치 영역 확보 (display: flex를 쓰면 ▶ 표시가 사라져서 여백으로 처리) */
+  cursor: pointer;
+  color: var(--text-h);
+  font-weight: 600;
 }
 
 .table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--border);
   border-radius: 8px;
 }
@@ -43,7 +194,7 @@
 table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -65,157 +216,29 @@ td:nth-child(2) {
 thead th {
   position: sticky;
   top: 0;
-  background: var(--code-bg);
+  background: var(--surface);
   color: var(--text-h);
 }
 
-/* ---------- 가장 빠른 출국장 ---------- */
-:root {
-  --bar-muted: #c9c6cf;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bar-muted: #4a4c57;
+/* ---------- 모바일 (폭 640px 이하) ---------- */
+@media (max-width: 640px) {
+  /* 입력창과 버튼을 한 줄에 하나씩, 화면 폭 가득 */
+  .departure-row {
+    flex-direction: column;
   }
-}
 
-.fastest {
-  margin-bottom: 32px;
-}
+  .departure input,
+  .departure button {
+    width: 100%;
+  }
 
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 20px;
-}
+  /* 터미널 버튼도 화면 폭을 반씩 나눠 가짐 */
+  .segmented {
+    display: flex;
+    width: 100%;
+  }
 
-.segmented {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.segmented button,
-.controls select {
-  font: inherit;
-  font-size: 15px;
-  padding: 8px 16px;
-  border: none;
-  background: var(--bg);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.segmented button + button {
-  border-left: 1px solid var(--border);
-}
-
-.segmented button.active {
-  background: var(--accent-bg);
-  color: var(--text-h);
-  font-weight: 600;
-}
-
-.controls select {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-.hero {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 20px 24px;
-  border: 1px solid var(--accent-border);
-  border-radius: 12px;
-  background: var(--accent-bg);
-  margin-bottom: 20px;
-}
-
-.hero-label {
-  font-size: 14px;
-}
-
-.hero-value {
-  font-size: 32px;
-  line-height: 1.2;
-  color: var(--text-h);
-}
-
-.hero-sub {
-  font-size: 15px;
-}
-
-.note {
-  font-size: 14px;
-  margin-top: 8px;
-}
-
-.raw-table summary {
-  cursor: pointer;
-  margin-bottom: 12px;
-  color: var(--text-h);
-}
-
-/* ---------- 출발 시간 입력 ---------- */
-.departure {
-  margin-bottom: 20px;
-}
-
-.departure label {
-  display: block;
-  font-size: 14px;
-  margin-bottom: 6px;
-  color: var(--text-h);
-}
-
-.departure-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.departure input,
-.departure button {
-  font: inherit;
-  font-size: 15px;
-  padding: 8px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text-h);
-}
-
-.departure button {
-  cursor: pointer;
-}
-
-.departure button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  font-weight: 600;
-}
-
-.departure button:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.form-message {
-  margin: 8px 0 0;
-  font-size: 14px;
-  color: #e5484d;
-}
-
-.badge {
-  display: inline-block;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 12px;
-  line-height: 20px;
+  .segmented button {
+    flex: 1;
+  }
 }
